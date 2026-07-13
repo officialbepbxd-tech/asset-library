@@ -775,6 +775,7 @@
               링크 복사
             </button>
           </div>
+          <button class="btn" id="mDelete" style="display:none;color:#c0392b;border-color:#f0c9c9;justify-content:center">이 에셋 삭제 (관리자)</button>
         </div>
       </div>
     </div>
@@ -1464,9 +1465,31 @@ function openModal(id){
     (navigator.clipboard?navigator.clipboard.writeText(url):Promise.reject())
       .then(()=>toast('링크가 복사되었습니다')).catch(()=>toast('링크: '+url));
   };
+  const del=document.getElementById('mDelete');
+  del.style.display=adminAuthed?'flex':'none'; // 관리자 로그인 상태에서만
+  del.onclick=()=>deleteAssetRemote(id);
   // 딥링크: URL 해시 갱신 (#asset=<id>)
   history.replaceState(null,'','#asset='+encodeURIComponent(id));
   document.getElementById('modalBg').classList.add('open');
+}
+// 에셋 삭제 (관리자) — Supabase row + tags + storage 파일
+async function deleteAssetRemote(id){
+  const a=findA(id); if(!a)return;
+  if(!confirm(`"${a.title}" 에셋을 삭제할까요?\n되돌릴 수 없고, 모든 직원에게 반영됩니다.`))return;
+  if(a.source!=='supabase'){ await dbDel(id); await rebuild(); buildCats();buildTagRow();render();closeModal();toast('삭제되었습니다'); return; }
+  try{
+    await fetch(`${SUPA_URL}/rest/v1/asset_tags?asset_id=eq.${id}`,{method:'DELETE',headers:SUPA_H});
+    const r=await fetch(`${SUPA_URL}/rest/v1/assets?id=eq.${id}`,{method:'DELETE',headers:SUPA_H});
+    if(!r.ok) throw new Error('assets '+r.status+': '+(await r.text()).slice(0,120));
+    // Storage 파일도 삭제 (best effort)
+    for(const u of [a.fullUrl,a.src]){
+      const p=u&&u.split('/storage/v1/object/public/')[1];
+      if(p) await fetch(`${SUPA_URL}/storage/v1/object/${p}`,{method:'DELETE',headers:SUPA_H}).catch(()=>{});
+    }
+    REMOTE=await loadSupabase(); await rebuild();
+    buildCats();buildTagRow();render();buildMarquee();renderAdminList();
+    closeModal(); toast('에셋을 삭제했어요 (모두에게 반영)');
+  }catch(e){ toast('삭제 실패: '+e.message); }
 }
 function modalStep(dir){
   const list=filtered();
