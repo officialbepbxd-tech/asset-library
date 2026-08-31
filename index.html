@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
@@ -119,11 +120,12 @@
     font-family:"Plus Jakarta Sans","Inter",sans-serif;
     font-weight:700;line-height:1.02;letter-spacing:-.035em;color:var(--fg);
     font-size:clamp(40px,6.6vw,96px);
-    margin:calc(clamp(44px,6vw,88px) + 90px) 0 0;text-align:center;
+    margin:calc(clamp(44px,6vw,88px) + 110px) 0 0;text-align:center;
   }
   .hero-sub{
     margin:calc(clamp(18px,2vw,26px) + 30px) 0 0;text-align:center;
-    color:#a9a9b0;font-weight:400;letter-spacing:-.005em;line-height:1.5;
+    font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;
+    color:#666666;font-weight:600;letter-spacing:-.01em;line-height:1.5;
     font-size:clamp(12px,1vw,15px);
   }
   .hero-head .paren{display:inline-flex;align-items:center;font-weight:700;margin:0 .04em}
@@ -151,13 +153,13 @@
   }
 
   .hero-search{
-    margin-top:clamp(56px,8vw,120px);max-width:600px;margin-left:auto;margin-right:auto;
+    margin-top:calc(clamp(56px,8vw,120px) - 20px);max-width:600px;margin-left:auto;margin-right:auto;
     display:flex;align-items:center;gap:11px;
   }
   .hs-pill{
     flex:1;display:flex;align-items:center;
-    background:transparent;border:1.5px solid #d5d5db;border-radius:999px;
-    padding:clamp(10px,0.96vw,13px) clamp(13px,1.44vw,20px);
+    background:transparent;border:0;border-bottom:1.5px solid #d5d5db;border-radius:0;
+    padding:clamp(10px,0.96vw,13px) 2px;
     transition:border-color .15s;
   }
   .hs-pill:focus-within{border-color:#a9a9b3}
@@ -165,7 +167,7 @@
     flex:1;border:0;background:transparent;outline:none;
     color:var(--fg);font-size:clamp(10px,0.9vw,13px);font-family:inherit;font-weight:500;
   }
-  .hero-search input::placeholder{color:var(--fg-soft)}
+  .hero-search input::placeholder{color:#BBBBBB}
   .hero-search .hs-icon{
     width:clamp(17px,1.56vw,24px);height:clamp(17px,1.56vw,24px);color:var(--fg-soft);flex-shrink:0;
   }
@@ -177,13 +179,13 @@
   /* ---------- Marquee gallery ---------- */
   #marquee{
     overflow:hidden;background:var(--bg);
-    margin-top:clamp(40px,6vw,90px);padding:0 0 clamp(20px,3vw,40px);
+    margin-top:calc(clamp(40px,6vw,90px) - 20px);padding:0 0 clamp(20px,3vw,40px);
   }
   .mq-track{display:flex;width:max-content;animation:mq-scroll 70s linear infinite;will-change:transform}
   #marquee:hover .mq-track{animation-play-state:paused}
   @keyframes mq-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
   .mq-item{
-    flex:0 0 auto;height:clamp(150px,20vw,240px);margin-right:clamp(12px,1.2vw,18px);
+    flex:0 0 auto;height:clamp(150px,20vw,240px);margin-right:clamp(6px,0.6vw,9px);
     border-radius:16px;overflow:hidden;background:var(--bg-soft);cursor:pointer;position:relative;
   }
   .mq-item img{height:100%;width:auto;display:block;object-fit:cover;transition:transform .3s ease}
@@ -364,8 +366,15 @@
     display:grid;grid-template-columns:1.15fr 1fr;box-shadow:var(--shadow);padding:24px;gap:8px;
   }
   @media(max-width:760px){.modal{grid-template-columns:1fr;max-height:92vh;overflow:auto}}
-  .modal .preview{background:#f4f4f6;border-radius:16px;display:grid;place-items:center;padding:32px;min-height:320px}
+  .modal .preview{position:relative;background:#f4f4f6;border-radius:16px;display:grid;place-items:center;padding:32px;min-height:320px}
   .modal .preview img{max-width:100%;max-height:74vh;border-radius:8px}
+  .m-replace-ico{
+    position:absolute;top:12px;right:12px;width:38px;height:38px;border-radius:50%;
+    display:none;align-items:center;justify-content:center;cursor:pointer;
+    background:rgba(255,255,255,.9);border:1px solid #e2e2e8;color:var(--fg);
+    box-shadow:0 2px 8px rgba(0,0,0,.1);transition:.15s;
+  }
+  .m-replace-ico:hover{background:#fff;box-shadow:0 3px 12px rgba(0,0,0,.16)}
   .modal .info{padding:16px 20px 12px;display:flex;flex-direction:column;gap:16px;overflow:auto}
   .m-cat{display:inline-block;background:var(--accent);color:#fff;font-size:13px;font-weight:700;padding:6px 15px;border-radius:999px}
   .modal .info h2{margin:0;font-size:26px;font-weight:800;letter-spacing:-.02em}
@@ -540,6 +549,7 @@
     </div>
     <div class="auth-field"><input id="authEmail" type="email" placeholder="이메일 (name@bep.co.kr)" autocomplete="email"/></div>
     <div class="auth-field"><input id="authPw" type="password" placeholder="비밀번호 (6자 이상)" autocomplete="current-password" onkeydown="if(event.key==='Enter')authSubmit()"/></div>
+    <div class="auth-field" id="authPw2Field" style="display:none"><input id="authPw2" type="password" placeholder="비밀번호 확인 (다시 입력)" autocomplete="new-password" onkeydown="if(event.key==='Enter')authSubmit()"/></div>
     <button class="auth-btn" id="authBtn" onclick="authSubmit()">로그인</button>
     <div class="auth-msg" id="authMsg"></div>
     <p class="auth-hint">회사 이메일(@bep.co.kr)로만 가입할 수 있어요.<br/>처음이면 "회원가입"으로 계정을 만들어 주세요.</p>
@@ -586,7 +596,7 @@
   </nav>
 
   <h1 class="hero-head">Design Asset Library</h1>
-  <p class="hero-sub">A Collection Of Reusable Design Assets Managed By The BXD Team,<br/>Available For The Water Crew To Explore And Download.</p>
+  <p class="hero-sub">워터의 다양한 디자인 자산을 탐색하고 자유롭게 활용해보세요.</p>
 
   <div class="hero-search">
     <div class="hs-pill">
@@ -789,7 +799,13 @@
     <button class="m-nav m-prev" onclick="modalStep(-1)" title="이전"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 5l-7 7 7 7"/></svg></button>
     <button class="m-nav m-next" onclick="modalStep(1)" title="다음"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 5l7 7-7 7"/></svg></button>
     <div class="modal">
-      <div class="preview"><img id="mImg" src="" alt=""/></div>
+      <div class="preview">
+        <img id="mImg" src="" alt=""/>
+        <button class="m-replace-ico" id="mReplace" title="이미지 교체 (관리자)" aria-label="이미지 교체">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v13"/></svg>
+        </button>
+        <input type="file" id="mReplaceInput" accept="image/*" style="display:none"/>
+      </div>
       <div class="info">
         <div><span class="m-cat" id="mCat"></span></div>
         <h2 id="mTitle"></h2>
@@ -970,6 +986,8 @@ function authTab(mode){
   document.getElementById('tabLogin').classList.toggle('on',mode==='login');
   document.getElementById('tabSignup').classList.toggle('on',mode==='signup');
   document.getElementById('authBtn').textContent = mode==='login'?'로그인':'회원가입';
+  const p2=document.getElementById('authPw2Field'); if(p2) p2.style.display=(mode==='signup')?'block':'none';
+  const p2i=document.getElementById('authPw2'); if(p2i) p2i.value='';   // 탭 바꾸면 확인칸 비움
   authMsg('');
 }
 function showAuthGate(){ document.getElementById('authGate').classList.add('show'); }
@@ -980,6 +998,11 @@ async function authSubmit(){
   const btn=document.getElementById('authBtn');
   if(!email||!pw){ authMsg('이메일과 비밀번호를 입력해 주세요','err'); return; }
   if(authMode==='signup' && !email.endsWith('@'+ALLOWED_DOMAIN)){ authMsg('회사 이메일(@'+ALLOWED_DOMAIN+')만 가입할 수 있어요','err'); return; }
+  if(authMode==='signup'){
+    if(pw.length<6){ authMsg('비밀번호는 6자 이상이어야 해요','err'); return; }
+    const pw2=document.getElementById('authPw2').value||'';
+    if(pw!==pw2){ authMsg('비밀번호가 일치하지 않아요. 다시 확인해 주세요','err'); return; }
+  }
   btn.disabled=true; authMsg(authMode==='login'?'로그인 중…':'가입 중…');
   try{
     if(authMode==='signup'){
@@ -1626,6 +1649,10 @@ function openModal(id){
   const del=document.getElementById('mDelete');
   del.style.display=adminAuthed?'flex':'none'; // 관리자 로그인 상태에서만
   del.onclick=()=>deleteAssetRemote(id);
+  const rep=document.getElementById('mReplace');
+  rep.style.display=adminAuthed?'flex':'none'; // 관리자만 이미지 교체
+  rep.onclick=()=>document.getElementById('mReplaceInput').click();
+  document.getElementById('mReplaceInput').onchange=e=>{ const f=e.target.files&&e.target.files[0]; e.target.value=''; if(f) replaceAssetImage(id,f); };
   // 딥링크: URL 해시 갱신 (#asset=<id>)
   history.replaceState(null,'','#asset='+encodeURIComponent(id));
   document.getElementById('modalBg').classList.add('open');
@@ -1648,6 +1675,35 @@ async function deleteAssetRemote(id){
     buildCats();buildTagRow();render();buildMarquee();renderAdminList();
     closeModal(); toast('에셋을 삭제했어요 (모두에게 반영)');
   }catch(e){ toast('삭제 실패: '+e.message); }
+}
+// 이미지만 교체 (관리자) — 제목·태그·다운로드수 등은 그대로 유지
+async function replaceAssetImage(id, file){
+  const a=findA(id); if(!a) return;
+  if(a.source!=='supabase'){ toast('이 에셋은 교체를 지원하지 않아요'); return; }
+  const rep=document.getElementById('mReplace'); const oldLabel=rep.textContent;
+  rep.disabled=true; rep.textContent='교체 중…';
+  try{
+    const dataUrl=await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=()=>rej(new Error('파일 읽기 실패')); fr.readAsDataURL(file); });
+    let ext=(file.name.split('.').pop()||'').toLowerCase(); if(!/^[a-z0-9]{1,5}$/.test(ext)) ext=((file.type||'').split('/')[1]||'png');
+    const origBlob=await shrinkOriginal(dataUrl, ext);
+    const thumbBlob=await makeThumb(dataUrl,640);
+    // 기존 저장 폴더(카테고리 슬러그) 재사용 + 새 파일명으로 업로드(캐시 무효화)
+    const rel=(a.fullUrl||'').split('/asset-files/')[1]||'';
+    const folder=rel?rel.split('/')[0]:((CATEGORIES.find(c=>c.name===a.category)||{}).slug||'etc');
+    const v=Date.now();
+    const fileUrl=await supaUpload('asset-files',`${folder}/${id}_${v}.${ext}`,origBlob,origBlob.type);
+    const thumbUrl=await supaUpload('asset-thumbnails',`${folder}/${id}_${v}.jpg`,thumbBlob,'image/jpeg');
+    const patch={file_url:fileUrl, thumbnail_url:thumbUrl, file_type:ext, file_size:origBlob.size};
+    const r=await fetch(`${SUPA_URL}/rest/v1/assets?id=eq.${id}`,{method:'PATCH',headers:{...SUPA_H,'content-type':'application/json'},body:JSON.stringify(patch)});
+    if(!r.ok) throw new Error('assets '+r.status+': '+(await r.text()).slice(0,120));
+    // 옛 이미지 파일 정리 (best effort)
+    for(const u of [a.fullUrl,a.src]){ const p=u&&u.split('/storage/v1/object/public/')[1]; if(p) fetch(`${SUPA_URL}/storage/v1/object/${p.split('?')[0]}`,{method:'DELETE',headers:SUPA_H}).catch(()=>{}); }
+    REMOTE=await loadSupabase(); await rebuild();
+    buildCats();buildTagRow();render();buildMarquee();renderAdminList();
+    openModal(id); // 모달 새 이미지로 갱신
+    toast('이미지를 교체했어요 (모두에게 반영)');
+  }catch(e){ toast('교체 실패: '+e.message); }
+  finally{ rep.disabled=false; rep.textContent=oldLabel; }
 }
 function modalStep(dir){
   const list=filtered();
