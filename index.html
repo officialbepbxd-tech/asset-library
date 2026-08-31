@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --bg:#ffffff;
@@ -34,6 +35,29 @@
     color:var(--fg);background:var(--bg);
     -webkit-font-smoothing:antialiased;
   }
+
+  /* ---------- Auth gate (사내 로그인) ---------- */
+  #authGate{
+    position:fixed;inset:0;z-index:500;background:#fff;
+    display:none;align-items:center;justify-content:center;padding:24px;
+  }
+  #authGate.show{display:flex}
+  .auth-card{width:100%;max-width:400px;text-align:center}
+  .auth-brand{font-family:"Plus Jakarta Sans","Inter",sans-serif;font-weight:800;font-size:30px;letter-spacing:-.03em;margin:0 0 6px}
+  .auth-sub{color:var(--fg-soft);font-size:14px;margin:0 0 26px}
+  .auth-tabs{display:flex;gap:6px;background:var(--bg-soft);border-radius:12px;padding:4px;margin-bottom:18px}
+  .auth-tabs button{flex:1;border:0;background:transparent;padding:10px;border-radius:9px;font-size:14px;font-weight:700;color:var(--fg-soft);cursor:pointer}
+  .auth-tabs button.on{background:#fff;color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .auth-field{margin-bottom:11px;text-align:left}
+  .auth-field input{width:100%;border:1px solid var(--border);border-radius:12px;padding:14px 16px;font-size:15px;outline:none;font-family:inherit;background:var(--bg-soft2)}
+  .auth-field input:focus{border-color:var(--accent);background:#fff}
+  .auth-btn{width:100%;background:var(--accent);color:#fff;border:0;border-radius:12px;padding:15px;font-size:15px;font-weight:700;cursor:pointer;margin-top:6px}
+  .auth-btn:hover{opacity:.92}
+  .auth-btn:disabled{opacity:.5;cursor:default}
+  .auth-msg{font-size:13px;margin-top:14px;min-height:18px}
+  .auth-msg.err{color:#c0392b}
+  .auth-msg.ok{color:#0a8a3f}
+  .auth-hint{color:var(--fg-soft);font-size:12px;margin-top:18px;line-height:1.6}
 
   /* ---------- Floating action buttons (right) ---------- */
   .fab{
@@ -505,6 +529,23 @@
 </head>
 <body>
 
+<!-- ============ AUTH GATE (사내 로그인) ============ -->
+<div id="authGate">
+  <div class="auth-card">
+    <h1 class="auth-brand">Design Asset Library</h1>
+    <p class="auth-sub">BXD 사내 전용 · <b>@bep.co.kr</b> 계정으로 이용하세요</p>
+    <div class="auth-tabs">
+      <button id="tabLogin" class="on" onclick="authTab('login')">로그인</button>
+      <button id="tabSignup" onclick="authTab('signup')">회원가입</button>
+    </div>
+    <div class="auth-field"><input id="authEmail" type="email" placeholder="이메일 (name@bep.co.kr)" autocomplete="email"/></div>
+    <div class="auth-field"><input id="authPw" type="password" placeholder="비밀번호 (6자 이상)" autocomplete="current-password" onkeydown="if(event.key==='Enter')authSubmit()"/></div>
+    <button class="auth-btn" id="authBtn" onclick="authSubmit()">로그인</button>
+    <div class="auth-msg" id="authMsg"></div>
+    <p class="auth-hint">회사 이메일(@bep.co.kr)로만 가입할 수 있어요.<br/>처음이면 "회원가입"으로 계정을 만들어 주세요.</p>
+  </div>
+</div>
+
 <!-- ============ FLOATING ACTION BUTTONS (right) ============ -->
 <aside class="fab">
   <button class="fab-item active" id="sbHome" onclick="setView('home')">
@@ -536,7 +577,6 @@
   <nav class="hero-nav">
     <div class="hn-left">
       <span class="hn-brand" onclick="logoHome()" title="홈으로">Design Asset Library</span>
-      <a class="hn-link" onclick="setView('home')">Index</a>
       <a class="hn-link" onclick="document.querySelector('header.top').scrollIntoView({behavior:'smooth'})">Info</a>
     </div>
     <div class="hn-right">
@@ -608,11 +648,10 @@
   <!-- Gate -->
   <div class="gate" id="gate">
     <img class="gate-illust" id="gateIllust" src="" alt=""/>
-    <h2 class="gate-title">관리자 인증</h2>
-    <p class="gate-sub">에셋 업로드·관리는 관리자만 가능합니다.<br/>기본 비밀번호: <b>admin</b> (관리자 패널에서 변경 가능)</p>
+    <h2 class="gate-title">관리자 전용</h2>
+    <p class="gate-sub">이 계정은 관리자 권한이 없어요.<br/>업로드·관리가 필요하면 BXD 관리자에게 요청하세요.</p>
     <div class="gate-form">
-      <input id="gatePw" type="password" placeholder="비밀번호" onkeydown="if(event.key==='Enter')tryGate()"/>
-      <button class="btn primary" onclick="tryGate()">로그인</button>
+      <button class="btn primary" onclick="goHome()">갤러리로 돌아가기</button>
     </div>
   </div>
 
@@ -627,7 +666,6 @@
         인사이트 보기
       </button>
       <button class="btn" onclick="setAiKey()">AI 키 설정</button>
-      <button class="btn" onclick="changePw()">비밀번호 변경</button>
       <button class="btn" onclick="logoutAdmin()">로그아웃</button>
     </div>
 
@@ -881,7 +919,7 @@ let REMOTE=[];   // Supabase에서 불러온 에셋
 
 async function loadSupabase(){
   const base='id,title,description,file_type,file_url,thumbnail_url,file_url_light,download_count,created_at,color_palette,categories(name,slug,icon),asset_tags(tags(name))';
-  const H={apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY};
+  const H=SUPA_H; // 로그인 사용자 토큰 사용
   const mkurl=sel=>`${SUPA_URL}/rest/v1/assets?select=${encodeURIComponent(sel)}&order=created_at.desc&limit=2000`;
   // view_count 컬럼이 있으면 함께, 없으면(=SQL 미실행) 자동으로 빼고 재시도
   let r=await fetch(mkurl(base+',view_count'),{headers:H});
@@ -889,16 +927,18 @@ async function loadSupabase(){
   if(!r.ok) throw new Error('supabase '+r.status);
   const rows=await r.json();
   return rows.map(row=>{
-    const tags=(row.asset_tags||[]).map(x=>x.tags&&x.tags.name).filter(Boolean);
+    const nfc=s=>String(s==null?'':s).normalize('NFC');  // 맥 NFD 데이터도 검색되게 읽을 때 NFC 통일
+    const tags=(row.asset_tags||[]).map(x=>x.tags&&x.tags.name).filter(Boolean).map(nfc);
     const file=row.file_url||row.thumbnail_url||'';
     let filename=(file.split('/').pop()||row.title||'asset');
     try{ filename=decodeURIComponent(filename); }catch(e){}
+    filename=nfc(filename);
     return {
       id:row.id,
-      title:row.title||filename,
-      category:(row.categories&&row.categories.name)||'미분류',
+      title:nfc(row.title||filename),
+      category:nfc((row.categories&&row.categories.name)||'미분류'),
       tags,
-      description:row.description||'',
+      description:nfc(row.description||''),
       src:row.thumbnail_url||row.file_url,      // 그리드용 썸네일
       fullUrl:row.file_url||row.thumbnail_url,   // 다운로드/원본
       filename,
@@ -913,8 +953,67 @@ async function loadSupabase(){
   });
 }
 
-/* ---------- Supabase 쓰기 (anon) ---------- */
+/* ---------- Supabase 쓰기 ---------- */
+// Authorization은 로그인 후 사용자 토큰으로 교체됨 (onLogin)
 const SUPA_H={apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY};
+
+/* ============================================================
+   사내 로그인 (Supabase Auth) — @bep.co.kr 전용
+   ============================================================ */
+const ADMIN_EMAILS=['seyeon.park@bep.co.kr','hyunjung.hwang@bep.co.kr'];
+const ALLOWED_DOMAIN='bep.co.kr';
+let sbAuth=null, USER_EMAIL=null, appReady=false, authMode='login';
+function isAppAdmin(){ return !!USER_EMAIL && ADMIN_EMAILS.map(e=>e.toLowerCase()).includes(USER_EMAIL.toLowerCase()); }
+function authMsg(text,type){ const el=document.getElementById('authMsg'); el.textContent=text||''; el.className='auth-msg'+(type?(' '+type):''); }
+function authTab(mode){
+  authMode=mode;
+  document.getElementById('tabLogin').classList.toggle('on',mode==='login');
+  document.getElementById('tabSignup').classList.toggle('on',mode==='signup');
+  document.getElementById('authBtn').textContent = mode==='login'?'로그인':'회원가입';
+  authMsg('');
+}
+function showAuthGate(){ document.getElementById('authGate').classList.add('show'); }
+function hideAuthGate(){ document.getElementById('authGate').classList.remove('show'); }
+async function authSubmit(){
+  const email=(document.getElementById('authEmail').value||'').trim().toLowerCase();
+  const pw=document.getElementById('authPw').value||'';
+  const btn=document.getElementById('authBtn');
+  if(!email||!pw){ authMsg('이메일과 비밀번호를 입력해 주세요','err'); return; }
+  if(authMode==='signup' && !email.endsWith('@'+ALLOWED_DOMAIN)){ authMsg('회사 이메일(@'+ALLOWED_DOMAIN+')만 가입할 수 있어요','err'); return; }
+  btn.disabled=true; authMsg(authMode==='login'?'로그인 중…':'가입 중…');
+  try{
+    if(authMode==='signup'){
+      const {data,error}=await sbAuth.auth.signUp({email,password:pw});
+      if(error) throw error;
+      if(data.session){ await onLogin(data.session); }
+      else { authMsg('가입 완료! 로그인 탭에서 로그인해 주세요.','ok'); authTab('login'); }
+    }else{
+      const {data,error}=await sbAuth.auth.signInWithPassword({email,password:pw});
+      if(error) throw error;
+      await onLogin(data.session);
+    }
+  }catch(e){
+    authMsg('실패: '+(e.message||e),'err');
+  }finally{ btn.disabled=false; }
+}
+async function onLogin(session){
+  if(!session) return;
+  USER_EMAIL=session.user.email;
+  SUPA_H.Authorization='Bearer '+session.access_token;   // 데이터 호출을 authenticated(로그인)로
+  adminAuthed=isAppAdmin();                              // 관리자 여부
+  hideAuthGate();
+  if(!appReady){ appReady=true; await init(); }
+  else { REMOTE=await loadSupabase(); await rebuild(); buildCats();buildTagRow();render();buildMarquee(); }
+}
+async function doLogout(){ try{ await sbAuth.auth.signOut(); }catch(e){} location.reload(); }
+async function bootstrap(){
+  sbAuth=window.supabase.createClient(SUPA_URL,SUPA_KEY);
+  // 토큰 자동 갱신 시 헤더 유지
+  sbAuth.auth.onAuthStateChange((_e,s)=>{ if(s&&s.access_token) SUPA_H.Authorization='Bearer '+s.access_token; });
+  const {data}=await sbAuth.auth.getSession();
+  if(data && data.session){ await onLogin(data.session); }
+  else { authTab('login'); showAuthGate(); }
+}
 let CATEGORIES=[]; // {id,name,slug}
 async function loadCategories(){
   try{ CATEGORIES=await fetch(`${SUPA_URL}/rest/v1/categories?select=id,name,slug&order=sort_order`,{headers:SUPA_H}).then(r=>r.json()); }catch(e){ CATEGORIES=[]; }
@@ -983,7 +1082,7 @@ async function getOrCreateCategory(name){
   CATEGORIES.push({id:cid,name:n,slug}); return cid;
 }
 async function getOrCreateTag(name){
-  const n=name.trim(); if(!n)return null;
+  const n=String(name).normalize('NFC').trim(); if(!n)return null;  // 한글 NFC 정규화(맥 파일명 NFD → 검색과 일치)
   const found=await fetch(`${SUPA_URL}/rest/v1/tags?select=id&name=eq.${encodeURIComponent(n)}&limit=1`,{headers:SUPA_H}).then(r=>r.json());
   if(found[0]) return found[0].id;
   const id=crypto.randomUUID();
@@ -992,6 +1091,28 @@ async function getOrCreateTag(name){
   const d=await r.json(); return (d[0]&&d[0].id)||id;
 }
 // 에셋 1건을 Supabase에 업로드 (Storage + assets + tags + asset_tags)
+// 원본 파일명(title)을 _ - 공백 기준으로 쪼개 태그로 (UUID 파일명 대신 의미있는 이름 사용)
+function filenameTags(name){
+  return String(name||'')
+    .normalize('NFC')                // 맥 파일명 한글 NFD → NFC 통일
+    .replace(/\.[^.]+$/,'')          // 확장자 제거
+    .split(/[_\-\s]+/)
+    .map(s=>s.trim())
+    .filter(s=>s.length>=1);
+}
+// 태그 저장 직전 필터 — UUID 전체/조각, 특히 이 에셋 ID를 '-'로 쪼갠 값 차단
+function sanitizeTags(tags, assetId){
+  const block=new Set();
+  if(assetId){ const id=String(assetId).toLowerCase(); block.add(id); id.split('-').forEach(p=>{ if(p)block.add(p); }); }
+  return (tags||[]).filter(t=>{
+    if(typeof t!=='string') return false;
+    const v=t.trim(); if(!v) return false;
+    const low=v.toLowerCase();
+    if(block.has(low)) return false;                                                                 // 이 에셋 UUID 전체/조각
+    if(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)) return false;       // 완전한 UUID
+    return true;
+  });
+}
 async function supaUploadAsset(p, category, tags){
   const catId=await getOrCreateCategory(category);
   const catSlug=(CATEGORIES.find(c=>c.id===catId)||{}).slug||'etc';
@@ -1007,7 +1128,9 @@ async function supaUploadAsset(p, category, tags){
   if(!ar.ok) throw new Error('assets '+ar.status+': '+(await ar.text()).slice(0,140));
   // tags
   const links=[];
-  for(const t of tags){ const tid=await getOrCreateTag(t); if(tid) links.push({asset_id:assetId,tag_id:tid}); }
+  // AI/수동 태그 + 원본 파일명 태그 → UUID/조각 필터 후 저장
+  const finalTags=sanitizeTags([...new Set([...(tags||[]), ...filenameTags(p.title||p.filename)])], assetId);
+  for(const t of finalTags){ const tid=await getOrCreateTag(t); if(tid) links.push({asset_id:assetId,tag_id:tid}); }
   if(links.length){
     const lr=await fetch(`${SUPA_URL}/rest/v1/asset_tags`,{method:'POST',headers:{...SUPA_H,'content-type':'application/json'},body:JSON.stringify(links)});
     if(!lr.ok) throw new Error('asset_tags '+lr.status+': '+(await lr.text()).slice(0,140));
@@ -1038,6 +1161,10 @@ function buildMarquee(){
   const track=document.getElementById('mqTrack');
   const wrap=document.getElementById('marquee');
   if(!track)return;
+  // 관리자/대시보드 view가 열려 있으면 홈 마퀴를 표시하지 않음 (view 상태 기준)
+  const adminOpen=document.getElementById('admin').classList.contains('open');
+  const dashOpen=document.getElementById('dashboard').classList.contains('open');
+  if(adminOpen||dashOpen){ if(wrap)wrap.style.display='none'; return; }
   const pool=(REMOTE.length?REMOTE:ASSETS).filter(a=>a.src &&
     !MQ_EXCLUDE.some(x=>(a.title||'').includes(x)||(a.filename||'').includes(x)));
   if(pool.length===0){wrap.style.display='none';return;}
@@ -1060,10 +1187,45 @@ function tagCountList(){
   ASSETS.forEach(a=>(a.tags||[]).forEach(t=>m.set(t,(m.get(t)||0)+1)));
   return [...m.entries()].sort((a,b)=>b[1]-a[1]);
 }
+/* ---------- 검색 동의어 (한글↔영문, 로컬 map만 사용) ---------- */
+const SYN_GROUPS=[
+  ['자동차','car','vehicle'],
+  ['전기차','ev','electric car','electric vehicle'],
+  ['충전기','charger'],
+  ['충전소','charging station','station'],
+  ['사람','person','people'],
+  ['사진','photo'],
+  ['일러스트','illustration','illust'],
+  ['캐릭터','character','mascot'],
+  ['아이콘','icon','emoji'],
+  ['캐노피','canopy'],
+];
+const SYN_MAP=(()=>{
+  const m=new Map();
+  for(const g of SYN_GROUPS){
+    const set=g.map(x=>x.normalize('NFC').toLowerCase());
+    for(const term of set){
+      const cur=m.get(term)||new Set();
+      set.forEach(x=>cur.add(x));
+      m.set(term,cur);
+    }
+  }
+  return m;
+})();
+function expandTerm(w){ const s=SYN_MAP.get(w); return s?[...s]:[w]; }
+// 태그 = 정확일치(동의어 포함) / 제목·파일명·카테고리·설명 = 부분일치(동의어 포함)
+function assetMatchesQuery(a,q){
+  q=String(q||'').normalize('NFC').trim().toLowerCase(); if(!q)return true;
+  const tags=(a.tags||[]).map(t=>String(t).toLowerCase());
+  const text=[a.title,a.category,a.description,a.filename].map(x=>String(x||'')).join(' ').toLowerCase();
+  return q.split(/\s+/).every(w=>{
+    const terms=expandTerm(w);
+    return terms.some(t=> tags.includes(t) || text.includes(t));
+  });
+}
 function matchCount(q){
-  q=(q||'').trim().toLowerCase(); if(!q)return ASSETS.length;
-  const words=q.split(/\s+/);
-  return ASSETS.filter(a=>{const hay=[a.title,a.category,a.description,...(a.tags||[]),a.filename].join(' ').toLowerCase();return words.every(w=>hay.includes(w));}).length;
+  q=(q||'').trim(); if(!q)return ASSETS.length;
+  return ASSETS.filter(a=>assetMatchesQuery(a,q)).length;
 }
 function renderSearchPanel(){ renderPanelInto(document.getElementById('searchPanel'), searchEl); }
 function renderHeroPanel(){ renderPanelInto(document.getElementById('heroSearchPanel'), document.getElementById('heroSearch')); }
@@ -1111,7 +1273,7 @@ function applySearch(q){ addRecent(q); closeSearchPanel(); syncSearch(q,''); blu
 /* ---------- Search sync (hero <-> sticky) ---------- */
 let searchRenderTimer;
 function syncSearch(val,from){
-  state.q=val;
+  state.q=String(val==null?'':val).normalize('NFC');  // 검색어도 NFC로 통일(한글 조합 일치)
   if(from!=='hero') document.getElementById('heroSearch').value=val;
   if(from!=='top'){ searchEl.value=val; }
   document.getElementById('clearBtn').style.display=val?'block':'none';
@@ -1172,16 +1334,12 @@ function topTags(){
   return [...m.entries()].sort((a,b)=>b[1]-a[1]).map(x=>x[0]).filter(t=>!POPULAR_HIDE.has(t));
 }
 function filtered(){
-  const q=state.q.trim().toLowerCase();
+  const q=state.q.trim();
   return ASSETS.filter(a=>{
     if(state.view==='favorites' && !isFav(a.id)) return false;
     if(state.cat!=='전체' && a.category!==state.cat) return false;
     if(state.tag && !(a.tags||[]).includes(state.tag)) return false;
-    if(q){
-      const hay=[a.title,a.category,a.description,...(a.tags||[]),a.filename].join(' ').toLowerCase();
-      // every word must match somewhere (AND search)
-      return q.split(/\s+/).every(w=>hay.includes(w));
-    }
+    if(q) return assetMatchesQuery(a,q);
     return true;
   }).sort((a,b)=>b.addedAt-a.addedAt);
 }
@@ -1553,7 +1711,9 @@ function cancelTags(){tagEditing=false;renderModalTags();}
 async function download(id){
   const a=findA(id); if(!a)return;
   const url=a.fullUrl||a.src;
-  const name=a.filename||(a.title+'.'+(a.ext||'png'));
+  // 원본 파일명으로 다운로드 (Storage의 UUID 파일명 대신 title 사용)
+  let name=String(a.title||a.filename||'asset').replace(/[\\/:*?"<>|]/g,'_');
+  if(!/\.[a-z0-9]{1,5}$/i.test(name)) name+='.'+(a.ext||'png');
   toast('다운로드를 시작합니다');
   try{
     const blob=await fetch(url).then(r=>{if(!r.ok)throw 0;return r.blob();});
@@ -1613,7 +1773,9 @@ function openAdmin(){
   document.getElementById('gallery').style.display='none';
   document.getElementById('catbar').style.display='none';
   document.getElementById('admin').classList.add('open');
-  if(adminAuthed){showAdminBody();}else{
+  if(isAppAdmin()){ adminAuthed=true; showAdminBody(); }
+  else{
+    adminAuthed=false;
     document.getElementById('gate').style.display='block';
     document.getElementById('adminBody').style.display='none';
     startGateIllust();
@@ -1622,12 +1784,7 @@ function openAdmin(){
 }
 function goHome(){ setView('home'); }
 function logoHome(){ history.replaceState(null,'',location.pathname+location.search); location.reload(); }
-function tryGate(){
-  if(document.getElementById('gatePw').value===getPw()){
-    adminAuthed=true;showAdminBody();
-  }else{toast('비밀번호가 올바르지 않습니다');}
-}
-function logoutAdmin(){adminAuthed=false;goHome();}
+function logoutAdmin(){ doLogout(); } // 완전 로그아웃
 function showAdminBody(){
   stopGateIllust();
   document.getElementById('gate').style.display='none';
@@ -1839,8 +1996,11 @@ const AI_FIELDS=['time','vehicle','style','station_structure','people','location
 // 정의서(WATER_AI_자동태깅_정의서.md) 기반 프롬프트 — 9개 필드 분류
 let AI_PROMPT=`너는 WATER(전기차 충전 브랜드) 에셋 라이브러리의 이미지 자동 태깅 도우미다. 아래 [정의서]를 기준으로 이미지를 분석해 9개 필드로 분류하라. 반드시 JSON 객체 하나만 출력한다(설명·마크다운·코드펜스 금지). 키는 정확히 time, vehicle, style, station_structure, people, location, season, character, camera_angle 이며, 각 값은 정의서의 옵션 표기를 한국어로 쓴다. 해당 없으면 "…없음" 또는 "불명"으로 표기한다.
 
+[중요 규칙 — time(시간대)]
+time은 오직 실제 시간대 단서(하늘 색, 햇빛/그림자, 노을, 별/달, 인공조명 등)가 이미지에 보일 때만 낮/밤/새벽 등으로 판단한다. 일러스트·마스코트·아이콘·로고·단색/투명/흰색 배경 등 시간대 단서가 없는 이미지는, 배경이 밝더라도 절대 "낮"으로 넣지 말고 반드시 "불명"으로 표기한다. 밝기(bright)와 낮(daytime)을 혼동하지 마라. 실내 사진처럼 시간대를 알 수 없으면 "불명"이다.
+
 출력 예시:
-{"time":"낮","vehicle":"차량 없음","style":"일러스트","station_structure":"충전소 없음","people":"사람 없음","location":"배경 없음","season":"불명","character":"일로 마스코트","camera_angle":"정면"}
+{"time":"불명","vehicle":"차량 없음","style":"일러스트","station_structure":"충전소 없음","people":"사람 없음","location":"배경 없음","season":"불명","character":"일로 마스코트","camera_angle":"정면"}
 
 [정의서]
 학습 이미지 및 Few-shot 준비
@@ -2821,9 +2981,26 @@ async function analyzeImage(imgDataUrl, attempt=0){
   const d=await r.json();
   const parts=((((d.candidates||[])[0]||{}).content||{}).parts)||[];
   const text=parts.map(p=>p.text||'').join('');
+  console.log('[AI raw response]', text);            // 원인 확인용 (콘솔)
   // 정의서 출력에서 태그 추출 (JSON 응답 가정)
   let obj={}; try{ obj=JSON.parse((text.match(/\{[\s\S]*\}/)||[])[0]); }catch(e){}
-  return AI_FIELDS.map(f=>obj[f]).filter(v=>v&&!/없음|불명|해당\s*없음/.test(v));
+  return cleanTags(AI_FIELDS.map(f=>obj[f]));
+}
+// AI 태그 정제 — 16진수/ID/JSON 잔해 등 쓰레기값 제거
+function cleanTags(arr){
+  const out=[];
+  for(let v of (arr||[])){
+    if(typeof v!=='string') continue;
+    v=v.trim().replace(/^#+/,'').trim();
+    if(!v) continue;
+    if(/^[0-9a-fA-F]{3,}$/.test(v)) continue;         // 16진수 조각(a2721bd7 등) 제외
+    if(/^[0-9a-fA-F-]{8,}$/.test(v)) continue;        // UUID/해시 형태 제외
+    if(/[{}\[\]"<>]/.test(v)) continue;               // JSON 잔해 제외
+    if(v.length>24) continue;                         // 너무 긴 값 제외
+    if(/없음|불명|해당\s*없음/.test(v)) continue;     // 미해당 값 제외
+    if(!out.includes(v)) out.push(v);
+  }
+  return out;
 }
 
 async function runAiTagging(){
@@ -2984,7 +3161,7 @@ document.addEventListener('keydown',e=>{
   }
 });
 
-init();
+bootstrap(); // 로그인 확인 후 앱 시작
 </script>
 </body>
 </html>
