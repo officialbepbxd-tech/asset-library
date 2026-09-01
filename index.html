@@ -120,7 +120,7 @@
     font-family:"Plus Jakarta Sans","Inter",sans-serif;
     font-weight:700;line-height:1.02;letter-spacing:-.035em;color:var(--fg);
     font-size:clamp(40px,6.6vw,96px);
-    margin:calc(clamp(44px,6vw,88px) + 110px) 0 0;text-align:center;
+    margin:calc(clamp(44px,6vw,88px) + 130px) 0 0;text-align:center;
   }
   .hero-sub{
     margin:calc(clamp(18px,2vw,26px) + 30px) 0 0;text-align:center;
@@ -1205,6 +1205,13 @@ function addRecent(q){ q=(q||'').trim(); if(!q)return; RECENT=[q,...RECENT.filte
 function escAttr(s){ return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
 const CAT_COLORS=['#0099FF','#40ABF8','#78B9FF','#A8D5FF','#AE8EFF','#7C8BFF','#5CD6C0','#FFB020'];
 const POPULAR_HIDE=new Set(['water brand','flat design','파란색','line art','vector art']); // 인기 태그에서 숨길 태그
+// 카테고리별 우선 노출 태그 (실제 존재하는 것만 표시, 부족하면 해당 카테고리 상위 태그로 자동 채움)
+const CAT_CURATED={
+  illust:['사람','오브젝트','차량','지도'],
+  proposal:['충전소','야간','주간','핸드폰'],
+  photo:['충전소','충전기'],
+  ilo:['이모지형','로고형'],
+};
 function tagCountList(){
   const m=new Map();
   ASSETS.forEach(a=>(a.tags||[]).forEach(t=>m.set(t,(m.get(t)||0)+1)));
@@ -1212,16 +1219,23 @@ function tagCountList(){
 }
 /* ---------- 검색 동의어 (한글↔영문, 로컬 map만 사용) ---------- */
 const SYN_GROUPS=[
-  ['자동차','car','vehicle'],
+  ['자동차','차량','car','vehicle'],
   ['전기차','ev','electric car','electric vehicle'],
   ['충전기','charger'],
   ['충전소','charging station','station'],
-  ['사람','person','people'],
+  ['사람','인물','person','people'],
   ['사진','photo'],
   ['일러스트','illustration','illust'],
   ['캐릭터','character','mascot'],
   ['아이콘','icon','emoji'],
   ['캐노피','canopy'],
+  ['오브젝트','사물','object'],
+  ['지도','map'],
+  ['주간','낮','day','daytime'],
+  ['야간','밤','night'],
+  ['이모지형','컬러','color','colored','blue','파랑','파란색','블루'],   // 일로: 색 있는 것
+  ['로고형','모노','mono','흑백','black white','단색','흰색','white','화이트'], // 일로: 색 없는 것
+  ['핸드폰','모바일','스마트폰','휴대폰','mobile','smartphone','phone'],
 ];
 const SYN_MAP=(()=>{
   const m=new Map();
@@ -1237,13 +1251,23 @@ const SYN_MAP=(()=>{
 })();
 function expandTerm(w){ const s=SYN_MAP.get(w); return s?[...s]:[w]; }
 // 태그 = 정확일치(동의어 포함) / 제목·파일명·카테고리·설명 = 부분일치(동의어 포함)
+// 태그 매칭 규칙:
+//  1) 완전일치  2) 공백 단어 단위 일치("회색 강아지"←"강아지")
+//  3) 한글(영문 미포함) 2자 이상은 부분일치 허용("전기차충전소"←"충전소"). 영문은 부분일치 금지(car↔cartoon 방지)
+function tagHitsTerm(tagLower, term){
+  if(tagLower===term) return true;
+  if(/없음$/.test(tagLower)) return false;   // "충전소 없음" 같은 부정 태그는 완전일치만(위에서 이미 처리)
+  if(tagLower.split(/\s+/).includes(term)) return true;
+  if(term.length>=2 && !/[a-z]/i.test(term) && tagLower.includes(term)) return true;
+  return false;
+}
 function assetMatchesQuery(a,q){
   q=String(q||'').normalize('NFC').trim().toLowerCase(); if(!q)return true;
-  const tags=(a.tags||[]).map(t=>String(t).toLowerCase());
+  const tags=(a.tags||[]).map(t=>String(t).normalize('NFC').toLowerCase());
   const text=[a.title,a.category,a.description,a.filename].map(x=>String(x||'')).join(' ').toLowerCase();
   return q.split(/\s+/).every(w=>{
     const terms=expandTerm(w);
-    return terms.some(t=> tags.includes(t) || text.includes(t));
+    return terms.some(t=> tags.some(tag=>tagHitsTerm(tag,t)) || text.includes(t));
   });
 }
 function matchCount(q){
@@ -1259,46 +1283,56 @@ function renderPanelInto(panel,input){
     const tags=tagCountList().filter(([t])=>!POPULAR_HIDE.has(t)).slice(0,14);
     if(tags.length){
       html+=`<div class="sp-sec"><div class="sp-h"><span class="sp-ico"></span>인기 태그</div><div class="sp-tags">`+
-        tags.map(([t,c])=>`<button class="sp-chip" onclick="pickTag('${escAttr(t)}')">#${esc(t)}<span class="cnt">${c}</span></button>`).join('')+`</div></div>`;
+        tags.map(([t,c])=>`<button class="sp-chip" data-act="tag" data-val="${esc(t)}">#${esc(t)}<span class="cnt">${c}</span></button>`).join('')+`</div></div>`;
     }
     html+=`<div class="sp-sec"><div class="sp-h"><span class="sp-ico"></span>최근 검색</div>`;
     html+= RECENT.length
-      ? `<div class="sp-wrap">`+RECENT.map(r=>`<button class="sp-chip" onclick="applySearch('${escAttr(r)}')">${esc(r)}</button>`).join('')+`</div>`
+      ? `<div class="sp-wrap">`+RECENT.map(r=>`<button class="sp-chip" data-act="q" data-val="${esc(r)}">${esc(r)}</button>`).join('')+`</div>`
       : `<div class="sp-empty">아직 검색 기록이 없어요.</div>`;
     html+=`</div>`;
     const cats=allCats();
     if(cats.length){
       html+=`<div class="sp-sec"><div class="sp-h"><span class="sp-ico"></span>카테고리 바로가기</div><div class="sp-wrap">`+
-        cats.map(([c],i)=>`<button class="sp-chip" onclick="pickCat('${escAttr(c)}')"><span class="sp-dot" style="background:${CAT_COLORS[i%CAT_COLORS.length]}"></span>${esc(c)}</button>`).join('')+`</div></div>`;
+        cats.map(([c],i)=>`<button class="sp-chip" data-act="cat" data-val="${esc(c)}"><span class="sp-dot" style="background:${CAT_COLORS[i%CAT_COLORS.length]}"></span>${esc(c)}</button>`).join('')+`</div></div>`;
     }
   } else {
     const cnt=matchCount(q);
     html+=`<div class="sp-sec"><div class="sp-h">매칭 미리보기</div>`+
-      `<div class="sp-search" onclick="applySearch('${escAttr(q)}')"><div class="l">`+
+      `<div class="sp-search" data-act="q" data-val="${esc(q)}"><div class="l">`+
       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>`+
       `'${esc(q)}' 검색하기</div><div class="cnt">${cnt}건</div></div></div>`;
     const ql=q.toLowerCase();
     const sim=tagCountList().filter(([t])=>t.toLowerCase().includes(ql)).slice(0,12);
     if(sim.length){
       html+=`<div class="sp-sec"><div class="sp-h">유사 태그</div><div class="sp-wrap">`+
-        sim.map(([t,c])=>`<button class="sp-chip" onclick="pickTag('${escAttr(t)}')">#${esc(t)}<span class="cnt">${c}</span></button>`).join('')+`</div></div>`;
+        sim.map(([t,c])=>`<button class="sp-chip" data-act="tag" data-val="${esc(t)}">#${esc(t)}<span class="cnt">${c}</span></button>`).join('')+`</div></div>`;
     }
   }
   panel.innerHTML=html;
   panel.classList.add('open');
 }
-function closeSearchPanel(){ document.querySelectorAll('.search-panel').forEach(p=>p.classList.remove('open')); }
+function closeSearchPanel(){ clearTimeout(panelTimer); document.querySelectorAll('.search-panel').forEach(p=>p.classList.remove('open')); }
 function blurSearch(){ if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); }
-function pickTag(t){ applySearch(t); }
+function pickTag(t){
+  const v=String(t).normalize('NFC');
+  searchLock=v;                 // 이 값으로 잠금 → 조합 확정이 덮어써도 무시됨
+  applySearch(v);
+  setTimeout(()=>{ searchLock=null; }, 500);  // 잠금 해제(그 뒤엔 정상 입력)
+}
 function pickCat(c){ closeSearchPanel(); blurSearch(); syncSearch('',''); setCat(c); }
-function applySearch(q){ addRecent(q); closeSearchPanel(); syncSearch(q,''); blurSearch(); window.scrollTo({top:document.querySelector('header.top').offsetTop,behavior:'smooth'}); }
+let lastApplyTs=0; // 태그 적용 직후 뒤늦은 IME compositionend가 값을 덮어쓰는 것 방지
+function applySearch(q){ lastApplyTs=Date.now(); addRecent(q); closeSearchPanel(); syncSearch(q,''); blurSearch(); window.scrollTo({top:document.querySelector('header.top').offsetTop,behavior:'smooth'}); }
 
 /* ---------- Search sync (hero <-> sticky) ---------- */
 let searchRenderTimer;
+let searchLock=null; // 태그 적용 중 다른 값(IME 조합 확정 등)이 검색어를 덮어쓰지 못하게 잠금
+let panelTimer;      // 드롭다운 렌더 디바운스 — 조합 확정 직후 즉시 리렌더로 클릭 대상이 사라지는 것 방지
 function syncSearch(val,from){
-  state.q=String(val==null?'':val).normalize('NFC');  // 검색어도 NFC로 통일(한글 조합 일치)
-  if(from!=='hero') document.getElementById('heroSearch').value=val;
-  if(from!=='top'){ searchEl.value=val; }
+  const nfc=String(val==null?'':val).normalize('NFC');  // 검색어 NFC 통일(한글 조합 일치)
+  if(searchLock!==null && nfc!==searchLock) return;     // 잠금 중엔 잠근 값 외 무시
+  state.q=nfc;
+  if(from!=='hero') document.getElementById('heroSearch').value=(searchLock!==null?searchLock:val);
+  if(from!=='top'){ searchEl.value=(searchLock!==null?searchLock:val); }
   document.getElementById('clearBtn').style.display=val?'block':'none';
   // 한글 IME 조합이 깨지지 않도록 무거운 렌더는 디바운스
   clearTimeout(searchRenderTimer);
@@ -1310,7 +1344,7 @@ async function init(){
   await openDB();
   buildCarousel();
   const heroEl=document.getElementById('heroSearch');
-  const heroInput=()=>{syncSearch(heroEl.value,'hero');renderHeroPanel();};
+  const heroInput=()=>{ if(Date.now()-lastApplyTs<500){ heroEl.value=state.q; return; } syncSearch(heroEl.value,'hero'); clearTimeout(panelTimer); panelTimer=setTimeout(renderHeroPanel,200); };
   heroEl.addEventListener('input',e=>{ if(e.isComposing)return; heroInput(); });
   heroEl.addEventListener('compositionend',heroInput);
   heroEl.addEventListener('focus',renderHeroPanel);
@@ -1356,12 +1390,45 @@ function topTags(){
   ASSETS.forEach(a=>(a.tags||[]).forEach(t=>m.set(t,(m.get(t)||0)+1)));
   return [...m.entries()].sort((a,b)=>b[1]-a[1]).map(x=>x[0]).filter(t=>!POPULAR_HIDE.has(t));
 }
+// 태그 칩 클릭 시 동의어까지 매칭 (예: 사람 클릭 → person/people 태그 에셋도 포함)
+function tagChipMatch(a, tag){
+  const tl=String(tag).normalize('NFC').toLowerCase();
+  const tags=(a.tags||[]).map(x=>String(x).normalize('NFC').toLowerCase());
+  const hitAny=termList=>tags.some(x=>termList.some(term=>tagHitsTerm(x,term)));
+  // 일로 색상 분리: 모노(흰색/흑백) 판별 우선 → 로고형, 그 외(컬러) → 이모지형
+  if(tl==='이모지형'||tl==='로고형'){
+    const isMono=hitAny(['흰색','화이트','white','흑백','black white','단색','모노','mono','black','검정','블랙','다크','dark','네이비','navy','wordmark','워드마크','로고타입']);
+    return tl==='로고형' ? isMono : !isMono;
+  }
+  // 충전소/충전기 상호 분리: 충전소 = 충전소·캐노피 신호 / 충전기 = 충전기이면서 충전소 신호 없음(제품컷)
+  if(tl==='충전소') return hitAny(expandTerm('충전소').concat(expandTerm('캐노피')));
+  if(tl==='충전기') return hitAny(expandTerm('충전기')) && !hitAny(expandTerm('충전소').concat(expandTerm('캐노피')));
+  const terms=[...new Set(expandTerm(tl))];
+  return tags.some(x=>terms.some(term=>tagHitsTerm(x,term)));
+}
+// 선택된 카테고리에 실제 존재하는 태그만 (0개 태그 방지) — 큐레이션 우선, 부족하면 상위 태그로 채움
+function categoryTagChips(cat){
+  const m=new Map();
+  ASSETS.filter(a=>a.category===cat).forEach(a=>(a.tags||[]).forEach(t=>m.set(t,(m.get(t)||0)+1)));
+  const catNames=new Set(ASSETS.map(a=>String(a.category||'').toLowerCase())); // 카테고리명 자체는 칩에서 제외
+  const lowerKeys=new Set([...m.keys()].map(k=>String(k).normalize('NFC').toLowerCase()));
+  const existsBySyn=t=>expandTerm(String(t).normalize('NFC').toLowerCase()).some(x=>lowerKeys.has(x)); // 동의어 중 하나라도 존재
+  // 큐레이션이 지정된 카테고리: 지정한 태그만(실제 존재하는 것) 노출, 자동 채움 없음
+  if(CAT_CURATED[cat]) return CAT_CURATED[cat].filter(t=>existsBySyn(t));
+  // 그 외 카테고리: 카테고리 내 상위 태그 자동 (카테고리명·숨김·동의어 중복 제외, 최대 4개)
+  const out=[], covered=new Set();
+  const addCovered=t=>expandTerm(String(t).normalize('NFC').toLowerCase()).forEach(x=>covered.add(x));
+  [...m.entries()].sort((a,b)=>b[1]-a[1]).map(x=>x[0])
+    .filter(t=>!POPULAR_HIDE.has(t) && !catNames.has(String(t).toLowerCase()) && !covered.has(String(t).normalize('NFC').toLowerCase()))
+    .forEach(t=>{ if(out.length<4){ out.push(t); addCovered(t); } });
+  return out;
+}
 function filtered(){
   const q=state.q.trim();
   return ASSETS.filter(a=>{
     if(state.view==='favorites' && !isFav(a.id)) return false;
     if(state.cat!=='전체' && a.category!==state.cat) return false;
-    if(state.tag && !(a.tags||[]).includes(state.tag)) return false;
+    if(state.tag && !tagChipMatch(a, state.tag)) return false;
     if(q) return assetMatchesQuery(a,q);
     return true;
   }).sort((a,b)=>b.addedAt-a.addedAt);
@@ -1382,7 +1449,8 @@ function buildCats(){
 }
 function buildTagRow(){
   const el=document.getElementById('tagrow');
-  const tags=topTags().slice(0,16);
+  // 전체: 인기 태그 / 특정 카테고리: 그 카테고리에 실제 있는 태그만
+  const tags = (state.cat==='전체') ? topTags().slice(0,16) : categoryTagChips(state.cat);
   if(tags.length===0){el.innerHTML='';return;}
   let html=`<button class="chip ${!state.tag?'active':''}" onclick="setTag(null)">전체</button>`;
   tags.forEach(t=>{
@@ -1602,17 +1670,32 @@ function toggleReqDone(id){const a=loadRequests();const r=a.find(x=>x.id===id);i
 function delRequest(id){if(!confirm('이 요청을 삭제할까요?'))return;saveRequests(loadRequests().filter(x=>x.id!==id));renderRequests();}
 
 /* ---------- Interactions ---------- */
-function setCat(c){state.cat=c;state.tag=null;buildCats();buildTagRow();render();window.scrollTo({top:0,behavior:'smooth'});}
+function setCat(c){state.cat=c;state.tag=null;buildCats();buildTagRow();render();}
 function setTag(t){state.tag=t;buildTagRow();render();}
 function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
 const searchEl=document.getElementById('search');
-function stickyInput(){syncSearch(searchEl.value,'top');renderSearchPanel();}
+function stickyInput(){ if(Date.now()-lastApplyTs<500){ searchEl.value=state.q; return; } syncSearch(searchEl.value,'top'); clearTimeout(panelTimer); panelTimer=setTimeout(renderSearchPanel,200); }
 searchEl.addEventListener('input',e=>{ if(e.isComposing)return; stickyInput(); });
 searchEl.addEventListener('compositionend',stickyInput);
 searchEl.addEventListener('focus',renderSearchPanel);
 searchEl.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();applySearch(searchEl.value);}});
 document.getElementById('clearBtn').onclick=()=>{syncSearch('','');document.getElementById('clearBtn').style.display='none';searchEl.focus();renderSearchPanel();};
+// 드롭다운 항목 클릭 위임 — pointerdown(가장 이른 시점, 조합 확정 전)에 잡아 리렌더로 항목이 바뀌기 전에 처리
+let lastPickTs=0;
+function handlePanelPick(e){
+  const el=e.target.closest && e.target.closest('.search-panel [data-act]');
+  if(!el) return;
+  e.preventDefault();                 // 조합 확정/blur/후속 이벤트 방지
+  if(Date.now()-lastPickTs<350) return;  // 같은 클릭의 pointerdown+mousedown 중복 방지
+  lastPickTs=Date.now();
+  const act=el.getAttribute('data-act'), val=el.getAttribute('data-val')||'';
+  if(act==='tag') pickTag(val);
+  else if(act==='cat') pickCat(val);
+  else applySearch(val);
+}
+document.addEventListener('pointerdown', handlePanelPick, true);
+document.addEventListener('mousedown', handlePanelPick, true); // 폴백
 
 function findA(id){return ASSETS.find(a=>String(a.id)===String(id));}
 
@@ -1730,6 +1813,7 @@ function renderModalTags(){
   const a=findA(modalId); if(!a)return;
   const el=document.getElementById('mTags');
   const btn=document.getElementById('mTagEdit');
+  if(btn) btn.style.display=adminAuthed?'':'none';   // 관리자만 태그 편집 버튼 노출
   if(!tagEditing){
     btn.textContent='편집';
     el.innerHTML=(a.tags||[]).length
@@ -1744,6 +1828,7 @@ function renderModalTags(){
   }
 }
 function toggleTagEdit(){
+  if(!adminAuthed){ toast('관리자만 태그를 수정할 수 있어요'); return; }
   if(!tagEditing){tagEditing=true;tagDraft=[...(findA(modalId).tags||[])];}
   else{tagEditing=false;}
   renderModalTags();
@@ -1752,14 +1837,38 @@ function removeTagDraft(i){tagDraft.splice(i,1);renderModalTags();}
 function tagInputKey(e){
   if(e.key==='Enter'){e.preventDefault();const v=e.target.value.trim();if(v&&!tagDraft.includes(v))tagDraft.push(v);e.target.value='';renderModalTags();}
 }
-function saveTags(){
+async function saveTags(){
   const a=findA(modalId); if(!a)return;
-  a.tags=[...tagDraft];
-  TAG_OVERRIDES[a.id]=[...tagDraft];
-  localStorage.setItem('al_tagoverrides',JSON.stringify(TAG_OVERRIDES));
-  tagEditing=false;
-  buildTagRow();render();renderModalTags();
-  toast('태그가 저장되었어요 (이 브라우저)');
+  if(!adminAuthed){ toast('관리자만 태그를 수정할 수 있어요'); return; }
+  const tags=[...new Set(tagDraft.map(t=>String(t).normalize('NFC').trim()).filter(Boolean))];
+  const btn=document.querySelector('.m-tagsave .btn.primary');
+  if(a.source==='supabase'){
+    if(btn){btn.disabled=true;btn.textContent='저장 중…';}
+    try{
+      // 기존 태그 링크 제거 후 새 태그로 교체 (Supabase에 반영 → 모두에게)
+      const dr=await fetch(`${SUPA_URL}/rest/v1/asset_tags?asset_id=eq.${a.id}`,{method:'DELETE',headers:SUPA_H});
+      if(!dr.ok) throw new Error('기존 태그 삭제 '+dr.status);
+      const links=[];
+      for(const t of tags){ const tid=await getOrCreateTag(t); if(tid) links.push({asset_id:a.id,tag_id:tid}); }
+      if(links.length){
+        const lr=await fetch(`${SUPA_URL}/rest/v1/asset_tags`,{method:'POST',headers:{...SUPA_H,'content-type':'application/json'},body:JSON.stringify(links)});
+        if(!lr.ok) throw new Error('저장 '+lr.status+': '+(await lr.text()).slice(0,100));
+      }
+      if(TAG_OVERRIDES[a.id]){ delete TAG_OVERRIDES[a.id]; localStorage.setItem('al_tagoverrides',JSON.stringify(TAG_OVERRIDES)); } // DB를 소스로
+      REMOTE=await loadSupabase(); await rebuild();
+      tagEditing=false;
+      buildTagRow();render();renderModalTags();
+      toast('태그를 저장했어요 (모두에게 반영)');
+    }catch(e){ if(btn){btn.disabled=false;btn.textContent='저장';} toast('태그 저장 실패: '+e.message); }
+  }else{
+    // 로컬(비Supabase) 에셋 폴백
+    a.tags=[...tags];
+    TAG_OVERRIDES[a.id]=[...tags];
+    localStorage.setItem('al_tagoverrides',JSON.stringify(TAG_OVERRIDES));
+    tagEditing=false;
+    buildTagRow();render();renderModalTags();
+    toast('태그가 저장되었어요');
+  }
 }
 function cancelTags(){tagEditing=false;renderModalTags();}
 
@@ -1924,7 +2033,7 @@ let tmExpanded=false;
 function renderTagManager(){
   const el=document.getElementById('tmList'); if(!el)return;
   const all=tagCountList();
-  document.getElementById('tmCount').textContent=`(${all.length}개)`;
+  document.getElementById('tmCount').textContent=`(고유 ${all.length}개)`;
   const q=(document.getElementById('tmSearch').value||'').trim().toLowerCase();
   let list=all; if(q) list=list.filter(([n])=>n.toLowerCase().includes(q));
   const total=list.length;
@@ -3013,10 +3122,31 @@ function setAiKey(){
 
 // 비전 호출 — Google Gemini
 const GEMINI_MODEL='gemini-2.5-flash-lite';
+// SVG/GIF 등 Gemini 미지원 형식을 PNG로 변환 (image/svg+xml 400 방지)
+function rasterizeToPng(dataUrl){
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=()=>{
+      const w=img.naturalWidth||1024, h=img.naturalHeight||1024;
+      const max=1024, scale=Math.min(1, max/Math.max(w,h));
+      const cw=Math.max(1,Math.round(w*scale)), ch=Math.max(1,Math.round(h*scale));
+      const c=document.createElement('canvas');c.width=cw;c.height=ch;
+      try{ const ctx=c.getContext('2d'); ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,cw,ch); ctx.drawImage(img,0,0,cw,ch); res(c.toDataURL('image/png')); }
+      catch(e){ rej(e); }
+    };
+    img.onerror=()=>rej(new Error('이미지 변환 실패'));
+    img.src=dataUrl;
+  });
+}
 async function analyzeImage(imgDataUrl, attempt=0){
   const key=aiKey();
   if(!key) throw new Error('NO_KEY');
   if(!AI_PROMPT) throw new Error('NO_PROMPT');
+  // Gemini는 png/jpeg/webp/heic/heif만 지원 — svg/gif 등은 PNG로 변환
+  const media0=(imgDataUrl.substring(5, imgDataUrl.indexOf(';'))||'').toLowerCase();
+  if(!['image/png','image/jpeg','image/webp','image/heic','image/heif'].includes(media0)){
+    imgDataUrl=await rasterizeToPng(imgDataUrl);
+  }
   const media=imgDataUrl.substring(5, imgDataUrl.indexOf(';'));
   const b64=imgDataUrl.split(',')[1];
   const body={contents:[{parts:[
