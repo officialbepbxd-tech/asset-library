@@ -292,7 +292,7 @@
   /* ---------- Results meta ---------- */
   .meta{
     max-width:none;margin:0;padding:16px var(--gut) 0;
-    display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+    display:flex;align-items:baseline;justify-content:flex-start;gap:10px;
   }
   .meta h1{font-family:"Plus Jakarta Sans","Inter",sans-serif;font-size:24px;margin:0;letter-spacing:-.4px}
   .meta .count{color:var(--fg-soft);font-size:14px}
@@ -542,17 +542,17 @@
 <div id="authGate">
   <div class="auth-card">
     <h1 class="auth-brand">Design Asset Library</h1>
-    <p class="auth-sub">BXD 사내 전용 · <b>@bep.co.kr</b> 계정으로 이용하세요</p>
+    <p class="auth-sub">사내 전용 · <b>@watercharging.com</b> 계정으로 이용하세요</p>
     <div class="auth-tabs">
       <button id="tabLogin" class="on" onclick="authTab('login')">로그인</button>
       <button id="tabSignup" onclick="authTab('signup')">회원가입</button>
     </div>
-    <div class="auth-field"><input id="authEmail" type="email" placeholder="이메일 (name@bep.co.kr)" autocomplete="email"/></div>
+    <div class="auth-field"><input id="authEmail" type="email" placeholder="이메일 (name@watercharging.com)" autocomplete="email"/></div>
     <div class="auth-field"><input id="authPw" type="password" placeholder="비밀번호 (6자 이상)" autocomplete="current-password" onkeydown="if(event.key==='Enter')authSubmit()"/></div>
     <div class="auth-field" id="authPw2Field" style="display:none"><input id="authPw2" type="password" placeholder="비밀번호 확인 (다시 입력)" autocomplete="new-password" onkeydown="if(event.key==='Enter')authSubmit()"/></div>
     <button class="auth-btn" id="authBtn" onclick="authSubmit()">로그인</button>
     <div class="auth-msg" id="authMsg"></div>
-    <p class="auth-hint">회사 이메일(@bep.co.kr)로만 가입할 수 있어요.<br/>처음이면 "회원가입"으로 계정을 만들어 주세요.</p>
+    <p class="auth-hint">회사 이메일(@watercharging.com)로만 가입할 수 있어요.<br/>가입 시 인증 메일을 보내드려요. 링크를 눌러 인증한 뒤 로그인하세요.</p>
   </div>
 </div>
 
@@ -808,7 +808,12 @@
       </div>
       <div class="info">
         <div><span class="m-cat" id="mCat"></span></div>
-        <h2 id="mTitle"></h2>
+        <div style="display:flex;align-items:center;gap:8px">
+          <h2 id="mTitle" style="margin:0"></h2>
+          <button id="mTitleEdit" title="제목 수정 (관리자)" style="display:none;background:none;border:0;cursor:pointer;color:var(--fg-soft);padding:4px;line-height:0" onclick="editTitle()">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+          </button>
+        </div>
         <div>
           <div class="m-taghead"><span class="lbl">태그</span><button class="m-tagedit" id="mTagEdit" onclick="toggleTagEdit()">편집</button></div>
           <div class="tags" id="mTags"></div>
@@ -974,10 +979,10 @@ async function loadSupabase(){
 const SUPA_H={apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY};
 
 /* ============================================================
-   사내 로그인 (Supabase Auth) — @bep.co.kr 전용
+   사내 로그인 (Supabase Auth) — @watercharging.com 전용
    ============================================================ */
-const ADMIN_EMAILS=['seyeon.park@bep.co.kr','hyunjung.hwang@bep.co.kr'];
-const ALLOWED_DOMAIN='bep.co.kr';
+const ADMIN_EMAILS=['seyeon.park@watercharging.com','hyunjung.hwang@watercharging.com'];
+const ALLOWED_DOMAIN='watercharging.com';
 let sbAuth=null, USER_EMAIL=null, appReady=false, authMode='login';
 function isAppAdmin(){ return !!USER_EMAIL && ADMIN_EMAILS.map(e=>e.toLowerCase()).includes(USER_EMAIL.toLowerCase()); }
 function authMsg(text,type){ const el=document.getElementById('authMsg'); el.textContent=text||''; el.className='auth-msg'+(type?(' '+type):''); }
@@ -997,7 +1002,7 @@ async function authSubmit(){
   const pw=document.getElementById('authPw').value||'';
   const btn=document.getElementById('authBtn');
   if(!email||!pw){ authMsg('이메일과 비밀번호를 입력해 주세요','err'); return; }
-  if(authMode==='signup' && !email.endsWith('@'+ALLOWED_DOMAIN)){ authMsg('회사 이메일(@'+ALLOWED_DOMAIN+')만 가입할 수 있어요','err'); return; }
+  if(!email.endsWith('@'+ALLOWED_DOMAIN)){ authMsg('회사 이메일(@'+ALLOWED_DOMAIN+')만 이용할 수 있어요','err'); return; }
   if(authMode==='signup'){
     if(pw.length<6){ authMsg('비밀번호는 6자 이상이어야 해요','err'); return; }
     const pw2=document.getElementById('authPw2').value||'';
@@ -1006,17 +1011,19 @@ async function authSubmit(){
   btn.disabled=true; authMsg(authMode==='login'?'로그인 중…':'가입 중…');
   try{
     if(authMode==='signup'){
-      const {data,error}=await sbAuth.auth.signUp({email,password:pw});
+      const {data,error}=await sbAuth.auth.signUp({email,password:pw,options:{emailRedirectTo:location.origin}});
       if(error) throw error;
       if(data.session){ await onLogin(data.session); }
-      else { authMsg('가입 완료! 로그인 탭에서 로그인해 주세요.','ok'); authTab('login'); }
+      else { authMsg('인증 메일을 보냈어요. 메일의 링크를 눌러 인증한 뒤 로그인해 주세요.','ok'); authTab('login'); }
     }else{
       const {data,error}=await sbAuth.auth.signInWithPassword({email,password:pw});
       if(error) throw error;
       await onLogin(data.session);
     }
   }catch(e){
-    authMsg('실패: '+(e.message||e),'err');
+    const m=(e.message||e)+'';
+    if(/not confirmed|Email not confirmed/i.test(m)) authMsg('이메일 인증이 아직 안 됐어요. 받은 메일의 인증 링크를 먼저 눌러 주세요.','err');
+    else authMsg('실패: '+m,'err');
   }finally{ btn.disabled=false; }
 }
 async function onLogin(session){
@@ -1208,9 +1215,10 @@ const POPULAR_HIDE=new Set(['water brand','flat design','파란색','line art','
 // 카테고리별 우선 노출 태그 (실제 존재하는 것만 표시, 부족하면 해당 카테고리 상위 태그로 자동 채움)
 const CAT_CURATED={
   illust:['사람','오브젝트','차량','지도'],
-  proposal:['충전소','야간','주간','핸드폰'],
+  proposal:['ppt표지','야간','주간','uiux'],
   photo:['충전소','충전기'],
   ilo:['이모지형','로고형'],
+  logo:['워터 로고','3초충전','흑백'],
 };
 function tagCountList(){
   const m=new Map();
@@ -1235,7 +1243,8 @@ const SYN_GROUPS=[
   ['야간','밤','night'],
   ['이모지형','컬러','color','colored','blue','파랑','파란색','블루'],   // 일로: 색 있는 것
   ['로고형','모노','mono','흑백','black white','단색','흰색','white','화이트'], // 일로: 색 없는 것
-  ['핸드폰','모바일','스마트폰','휴대폰','mobile','smartphone','phone'],
+  ['uiux','ui ux','ui/ux','핸드폰','모바일','스마트폰','휴대폰','mobile','smartphone','phone','앱','app','화면','screen'],
+  ['ppt표지','ppt 표지','표지','cover','ppt','타이틀','title'],
 ];
 const SYN_MAP=(()=>{
   const m=new Map();
@@ -1400,9 +1409,15 @@ function tagChipMatch(a, tag){
     const isMono=hitAny(['흰색','화이트','white','흑백','black white','단색','모노','mono','black','검정','블랙','다크','dark','네이비','navy','wordmark','워드마크','로고타입']);
     return tl==='로고형' ? isMono : !isMono;
   }
-  // 충전소/충전기 상호 분리: 충전소 = 충전소·캐노피 신호 / 충전기 = 충전기이면서 충전소 신호 없음(제품컷)
-  if(tl==='충전소') return hitAny(expandTerm('충전소').concat(expandTerm('캐노피')));
-  if(tl==='충전기') return hitAny(expandTerm('충전기')) && !hitAny(expandTerm('충전소').concat(expandTerm('캐노피')));
+  // 충전소/충전기 분리: 제품컷(제품 사진·스튜디오·렌더 등)은 충전소 신호가 있어도 충전기로 분류
+  if(tl==='충전소' || tl==='충전기'){
+    const isProduct=hitAny(['제품 사진','제품 이미지','product shot','product photography','white background','studio shot','스튜디오 촬영','3d 렌더링']);
+    const stationSig=hitAny(expandTerm('충전소').concat(expandTerm('캐노피')));
+    const chargerSig=hitAny(expandTerm('충전기'));
+    const isStation=stationSig && !isProduct;   // 제품컷이면 충전소 아님
+    if(tl==='충전소') return isStation;
+    return chargerSig && !isStation;            // 충전기: 충전기이면서 충전소가 아닌 것(제품컷 포함)
+  }
   const terms=[...new Set(expandTerm(tl))];
   return tags.some(x=>terms.some(term=>tagHitsTerm(x,term)));
 }
@@ -1427,9 +1442,10 @@ function filtered(){
   const q=state.q.trim();
   return ASSETS.filter(a=>{
     if(state.view==='favorites' && !isFav(a.id)) return false;
+    // 검색어가 있으면 카테고리/태그 필터 무시하고 전체에서 검색 (검색창 우선)
+    if(q) return assetMatchesQuery(a,q);
     if(state.cat!=='전체' && a.category!==state.cat) return false;
     if(state.tag && !tagChipMatch(a, state.tag)) return false;
-    if(q) return assetMatchesQuery(a,q);
     return true;
   }).sort((a,b)=>b.addedAt-a.addedAt);
 }
@@ -1449,8 +1465,8 @@ function buildCats(){
 }
 function buildTagRow(){
   const el=document.getElementById('tagrow');
-  // 전체: 인기 태그 / 특정 카테고리: 그 카테고리에 실제 있는 태그만
-  const tags = (state.cat==='전체') ? topTags().slice(0,16) : categoryTagChips(state.cat);
+  // 전체 카테고리: 하위 태그 표시 안 함 / 특정 카테고리: 그 카테고리에 실제 있는 태그만
+  const tags = (state.cat==='전체') ? [] : categoryTagChips(state.cat);
   if(tags.length===0){el.innerHTML='';return;}
   let html=`<button class="chip ${!state.tag?'active':''}" onclick="setTag(null)">전체</button>`;
   tags.forEach(t=>{
@@ -1670,7 +1686,18 @@ function toggleReqDone(id){const a=loadRequests();const r=a.find(x=>x.id===id);i
 function delRequest(id){if(!confirm('이 요청을 삭제할까요?'))return;saveRequests(loadRequests().filter(x=>x.id!==id));renderRequests();}
 
 /* ---------- Interactions ---------- */
-function setCat(c){state.cat=c;state.tag=null;buildCats();buildTagRow();render();}
+function setCat(c){
+  state.cat=c;state.tag=null;buildCats();buildTagRow();render();
+  scrollToContentTop();  // 탭 전환 시 항상 콘텐츠 시작점으로 리셋 (히어로는 지나간 상태 유지)
+}
+// 히어로는 가린 채, 스티키 헤더 바로 아래(탭 콘텐츠 시작)로 스크롤
+function scrollToContentTop(){
+  const header=document.querySelector('header.top');
+  const gallery=document.getElementById('gallery');
+  if(!header||!gallery) return;
+  const y=gallery.getBoundingClientRect().top + window.scrollY - header.offsetHeight;
+  window.scrollTo({top:Math.max(0,y), behavior:'smooth'});
+}
 function setTag(t){state.tag=t;buildTagRow();render();}
 function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
@@ -1732,6 +1759,7 @@ function openModal(id){
   const del=document.getElementById('mDelete');
   del.style.display=adminAuthed?'flex':'none'; // 관리자 로그인 상태에서만
   del.onclick=()=>deleteAssetRemote(id);
+  const te=document.getElementById('mTitleEdit'); if(te) te.style.display=adminAuthed?'inline-flex':'none'; // 관리자만 제목 수정
   const rep=document.getElementById('mReplace');
   rep.style.display=adminAuthed?'flex':'none'; // 관리자만 이미지 교체
   rep.onclick=()=>document.getElementById('mReplaceInput').click();
@@ -1758,6 +1786,29 @@ async function deleteAssetRemote(id){
     buildCats();buildTagRow();render();buildMarquee();renderAdminList();
     closeModal(); toast('에셋을 삭제했어요 (모두에게 반영)');
   }catch(e){ toast('삭제 실패: '+e.message); }
+}
+// 제목 수정 (관리자) — Supabase assets.title 갱신
+async function editTitle(){
+  const a=findA(modalId); if(!a) return;
+  if(!adminAuthed){ toast('관리자만 수정할 수 있어요'); return; }
+  const nv=prompt('제목 수정 (오타 등)', a.title);
+  if(nv===null) return;
+  const title=String(nv).normalize('NFC').trim();
+  if(!title){ toast('제목을 입력해 주세요'); return; }
+  if(title===a.title) return;
+  if(a.source==='supabase'){
+    try{
+      const r=await fetch(`${SUPA_URL}/rest/v1/assets?id=eq.${a.id}`,{method:'PATCH',headers:{...SUPA_H,'content-type':'application/json'},body:JSON.stringify({title})});
+      if(!r.ok) throw new Error('assets '+r.status+': '+(await r.text()).slice(0,100));
+      a.title=title;
+      document.getElementById('mTitle').textContent=title;
+      REMOTE=await loadSupabase(); await rebuild();
+      buildTagRow();render();buildMarquee();renderAdminList();
+      toast('제목을 수정했어요 (모두에게 반영)');
+    }catch(e){ toast('제목 수정 실패: '+e.message); }
+  }else{
+    a.title=title; document.getElementById('mTitle').textContent=title; render(); toast('제목을 수정했어요');
+  }
 }
 // 이미지만 교체 (관리자) — 제목·태그·다운로드수 등은 그대로 유지
 async function replaceAssetImage(id, file){
