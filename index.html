@@ -522,7 +522,7 @@
   .toast{
     position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);
     background:var(--accent);color:#fff;padding:12px 22px;border-radius:999px;font-size:14px;font-weight:600;
-    opacity:0;transition:.25s;z-index:200;box-shadow:var(--shadow);
+    opacity:0;transition:.25s;z-index:9999;box-shadow:var(--shadow);
   }
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .gate{max-width:560px;margin:40px auto;text-align:center;padding:20px}
@@ -558,7 +558,7 @@
 
 <!-- ============ FLOATING ACTION BUTTONS (right) ============ -->
 <aside class="fab">
-  <button class="fab-item active" id="sbHome" onclick="setView('home')">
+  <button class="fab-item active" id="sbHome" onclick="logoHome()">
     <span class="fab-btn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.2 3.5 10.4A1 1 0 0 0 3 11.2V20a1 1 0 0 0 1 1h5v-5.5a3 3 0 0 1 6 0V21h5a1 1 0 0 0 1-1v-8.8a1 1 0 0 0-.5-.8L12 3.2z"/></svg></span>
     <span class="fab-lbl">홈</span>
   </button>
@@ -1014,7 +1014,11 @@ async function authSubmit(){
       const {data,error}=await sbAuth.auth.signUp({email,password:pw,options:{emailRedirectTo:location.origin}});
       if(error) throw error;
       if(data.session){ await onLogin(data.session); }
-      else { authMsg('인증 메일을 보냈어요. 메일의 링크를 눌러 인증한 뒤 로그인해 주세요.','ok'); authTab('login'); }
+      else {
+        authTab('login');
+        authMsg('📩 '+email+' 로 인증 메일을 보냈어요! 메일함(스팸함 포함)에서 인증 링크를 누르면 가입이 완료돼요. 그 뒤 로그인하세요.','ok');
+        toast('본인인증 메일을 확인해 주세요! ('+email+')');
+      }
     }else{
       const {data,error}=await sbAuth.auth.signInWithPassword({email,password:pw});
       if(error) throw error;
@@ -1113,12 +1117,22 @@ async function getOrCreateCategory(name){
 }
 async function getOrCreateTag(name){
   const n=String(name).normalize('NFC').trim(); if(!n)return null;  // 한글 NFC 정규화(맥 파일명 NFD → 검색과 일치)
-  const found=await fetch(`${SUPA_URL}/rest/v1/tags?select=id&name=eq.${encodeURIComponent(n)}&limit=1`,{headers:SUPA_H}).then(r=>r.json());
-  if(found[0]) return found[0].id;
+  const q=encodeURIComponent(n);
+  // 대소문자 무시 조회 — 유니크 인덱스가 대소문자 무시라, case만 달라도 중복 취급됨
+  const lookup=()=>fetch(`${SUPA_URL}/rest/v1/tags?select=id&name=ilike.${q}&limit=1`,{headers:SUPA_H}).then(r=>r.json()).catch(()=>[]);
+  const found=await lookup();
+  if(found&&found[0]) return found[0].id;
   const id=crypto.randomUUID();
   const r=await fetch(`${SUPA_URL}/rest/v1/tags`,{method:'POST',headers:{...SUPA_H,'content-type':'application/json',Prefer:'return=representation'},body:JSON.stringify({id,name:n})});
-  if(!r.ok) throw new Error('tag '+r.status+': '+(await r.text()).slice(0,140));
-  const d=await r.json(); return (d[0]&&d[0].id)||id;
+  if(r.ok){ const d=await r.json(); return (d[0]&&d[0].id)||id; }
+  if(r.status===409){ // 이미 존재하는 태그 → 그 태그 재사용 (대소문자 무시 → 정확일치 순으로 재조회)
+    let again=await lookup();
+    if(!(again&&again[0])) again=await fetch(`${SUPA_URL}/rest/v1/tags?select=id&name=eq.${q}&limit=1`,{headers:SUPA_H}).then(r=>r.json()).catch(()=>[]);
+    if(again&&again[0]) return again[0].id;
+    console.warn('태그 중복이나 재조회 실패, 이 태그만 건너뜀:', n);
+    return null; // 이 태그만 스킵 — 업로드 전체는 계속 진행
+  }
+  throw new Error('tag '+r.status+': '+(await r.text()).slice(0,140));
 }
 // 에셋 1건을 Supabase에 업로드 (Storage + assets + tags + asset_tags)
 // 원본 파일명(title)을 _ - 공백 기준으로 쪼개 태그로 (UUID 파일명 대신 의미있는 이름 사용)
@@ -1215,8 +1229,8 @@ const POPULAR_HIDE=new Set(['water brand','flat design','파란색','line art','
 // 카테고리별 우선 노출 태그 (실제 존재하는 것만 표시, 부족하면 해당 카테고리 상위 태그로 자동 채움)
 const CAT_CURATED={
   illust:['사람','오브젝트','차량','지도'],
-  proposal:['ppt표지','야간','주간','uiux'],
-  photo:['충전소','충전기'],
+  proposal:['ppt표지','uiux'],
+  photo:['충전소','휴게소','충전기','낮','밤'],
   ilo:['이모지형','로고형'],
   logo:['워터 로고','3초충전','흑백'],
 };
@@ -1239,8 +1253,9 @@ const SYN_GROUPS=[
   ['캐노피','canopy'],
   ['오브젝트','사물','object'],
   ['지도','map'],
-  ['주간','낮','day','daytime'],
-  ['야간','밤','night'],
+  ['낮','주간','day','daytime','daylight'],
+  ['밤','야간','night','심야'],
+  ['휴게소','고속도로','고속도로휴게소','고속도로 휴게소','service area','rest area','서비스 에어리어'],
   ['이모지형','컬러','color','colored','blue','파랑','파란색','블루'],   // 일로: 색 있는 것
   ['로고형','모노','mono','흑백','black white','단색','흰색','white','화이트'], // 일로: 색 없는 것
   ['uiux','ui ux','ui/ux','핸드폰','모바일','스마트폰','휴대폰','mobile','smartphone','phone','앱','app','화면','screen'],
@@ -1686,7 +1701,15 @@ function toggleReqDone(id){const a=loadRequests();const r=a.find(x=>x.id===id);i
 function delRequest(id){if(!confirm('이 요청을 삭제할까요?'))return;saveRequests(loadRequests().filter(x=>x.id!==id));renderRequests();}
 
 /* ---------- Interactions ---------- */
+// 카테고리/태그 선택 시 검색어 비우기 (검색이 우선이라 안 비우면 변화가 없음)
+function clearSearchInput(){
+  state.q='';
+  if(typeof searchEl!=='undefined' && searchEl) searchEl.value='';
+  const hs=document.getElementById('heroSearch'); if(hs) hs.value='';
+  const cb=document.getElementById('clearBtn'); if(cb) cb.style.display='none';
+}
 function setCat(c){
+  clearSearchInput();
   state.cat=c;state.tag=null;buildCats();buildTagRow();render();
   scrollToContentTop();  // 탭 전환 시 항상 콘텐츠 시작점으로 리셋 (히어로는 지나간 상태 유지)
 }
@@ -1698,7 +1721,7 @@ function scrollToContentTop(){
   const y=gallery.getBoundingClientRect().top + window.scrollY - header.offsetHeight;
   window.scrollTo({top:Math.max(0,y), behavior:'smooth'});
 }
-function setTag(t){state.tag=t;buildTagRow();render();}
+function setTag(t){clearSearchInput();state.tag=t;buildTagRow();render();}
 function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
 const searchEl=document.getElementById('search');
