@@ -100,7 +100,7 @@
   /* ---------- HERO (key visual) ---------- */
   #hero{
     background:var(--bg);color:var(--fg);
-    padding:23px var(--gut) clamp(72px,9vw,128px) calc(var(--gut) + 30px);
+    padding:23px var(--gut) clamp(72px,9vw,128px) calc(var(--gut) - 20px);
     position:relative;overflow:visible;
   }
   .hero-nav{
@@ -1231,9 +1231,11 @@ const CAT_CURATED={
   illust:['사람','오브젝트','차량','지도'],
   proposal:['ppt표지','uiux'],
   photo:['충전소','휴게소','충전기','낮','밤'],
-  ilo:['이모지형','로고형'],
+  ilo:['이모지형','로고형','목업'],
   logo:['워터 로고','3초충전','흑백'],
 };
+// 카테고리를 무시하고 전체에서 매칭하는 태그(예: 목업 = 일로가 앱/UI에 쓰인 것, 다른 카테고리에 있음)
+const GLOBAL_TAGS=new Set(['목업']);
 function tagCountList(){
   const m=new Map();
   ASSETS.forEach(a=>(a.tags||[]).forEach(t=>m.set(t,(m.get(t)||0)+1)));
@@ -1419,6 +1421,13 @@ function tagChipMatch(a, tag){
   const tl=String(tag).normalize('NFC').toLowerCase();
   const tags=(a.tags||[]).map(x=>String(x).normalize('NFC').toLowerCase());
   const hitAny=termList=>tags.some(x=>termList.some(term=>tagHitsTerm(x,term)));
+  // 목업: 일로가 '앱 화면/목업'에 쓰인 것. 순수 일로(ilo 카테고리)는 제외 → proposal/photo의 활용컷만
+  if(tl==='목업'){
+    if(a.category==='ilo') return false;             // 순수 이모지/로고 제외
+    const isIlo=hitAny(['일로','ilo']);              // '워터 마스코트(일로)'도 한글 부분일치로 잡힘
+    const isApp=hitAny(['핸드폰','스마트폰','휴대폰','앱화면','앱스크린','mobile','uiux','ui ux']); // 실제 앱/폰 목업 신호
+    return isIlo && isApp;
+  }
   // 일로 색상 분리: 모노(흰색/흑백) 판별 우선 → 로고형, 그 외(컬러) → 이모지형
   if(tl==='이모지형'||tl==='로고형'){
     const isMono=hitAny(['흰색','화이트','white','흑백','black white','단색','모노','mono','black','검정','블랙','다크','dark','네이비','navy','wordmark','워드마크','로고타입']);
@@ -1444,7 +1453,7 @@ function categoryTagChips(cat){
   const lowerKeys=new Set([...m.keys()].map(k=>String(k).normalize('NFC').toLowerCase()));
   const existsBySyn=t=>expandTerm(String(t).normalize('NFC').toLowerCase()).some(x=>lowerKeys.has(x)); // 동의어 중 하나라도 존재
   // 큐레이션이 지정된 카테고리: 지정한 태그만(실제 존재하는 것) 노출, 자동 채움 없음
-  if(CAT_CURATED[cat]) return CAT_CURATED[cat].filter(t=>existsBySyn(t));
+  if(CAT_CURATED[cat]) return CAT_CURATED[cat].filter(t=>existsBySyn(t) || GLOBAL_TAGS.has(t));
   // 그 외 카테고리: 카테고리 내 상위 태그 자동 (카테고리명·숨김·동의어 중복 제외, 최대 4개)
   const out=[], covered=new Set();
   const addCovered=t=>expandTerm(String(t).normalize('NFC').toLowerCase()).forEach(x=>covered.add(x));
@@ -1459,7 +1468,8 @@ function filtered(){
     if(state.view==='favorites' && !isFav(a.id)) return false;
     // 검색어가 있으면 카테고리/태그 필터 무시하고 전체에서 검색 (검색창 우선)
     if(q) return assetMatchesQuery(a,q);
-    if(state.cat!=='전체' && a.category!==state.cat) return false;
+    const globalTag = state.tag && GLOBAL_TAGS.has(state.tag);  // 목업 등은 카테고리 무시
+    if(!globalTag && state.cat!=='전체' && a.category!==state.cat) return false;
     if(state.tag && !tagChipMatch(a, state.tag)) return false;
     return true;
   }).sort((a,b)=>b.addedAt-a.addedAt);
