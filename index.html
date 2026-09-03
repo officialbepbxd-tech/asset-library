@@ -100,7 +100,7 @@
   /* ---------- HERO (key visual) ---------- */
   #hero{
     background:var(--bg);color:var(--fg);
-    padding:23px var(--gut) clamp(72px,9vw,128px) calc(var(--gut) - 20px);
+    padding:23px var(--gut) clamp(72px,9vw,128px);
     position:relative;overflow:visible;
   }
   .hero-nav{
@@ -108,6 +108,7 @@
     font-size:15px;font-weight:500;letter-spacing:-.01em;color:var(--fg-soft);
     margin-bottom:0;
   }
+  .hero-nav .hn-left{position:relative;left:10px}  /* 좌측 그룹만 우측 10px */
   .hn-left,.hn-right{display:flex;align-items:center;gap:28px}
   .hn-right{margin-right:26px}
   .hn-brand{color:var(--fg);font-weight:700;font-size:15px;letter-spacing:-.01em;cursor:pointer}
@@ -121,12 +122,14 @@
     font-weight:700;line-height:1.02;letter-spacing:-.035em;color:var(--fg);
     font-size:clamp(40px,6.6vw,96px);
     margin:calc(clamp(44px,6vw,88px) + 130px) 0 0;text-align:center;
+    position:relative;left:-10px;  /* 타이틀 10px 왼쪽 */
   }
   .hero-sub{
     margin:calc(clamp(18px,2vw,26px) + 30px) 0 0;text-align:center;
     font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;
     color:#666666;font-weight:600;letter-spacing:-.01em;line-height:1.5;
     font-size:clamp(12px,1vw,15px);
+    position:relative;left:-10px;  /* 서브타이틀 10px 왼쪽 */
   }
   .hero-head .paren{display:inline-flex;align-items:center;font-weight:700;margin:0 .04em}
   /* carousel inside the parentheses — continuous horizontal slide */
@@ -153,6 +156,7 @@
   }
 
   .hero-search{
+    position:relative;left:-10px;  /* 검색바 10px 왼쪽 */
     margin-top:calc(clamp(56px,8vw,120px) - 20px);max-width:600px;margin-left:auto;margin-right:auto;
     display:flex;align-items:center;gap:11px;
   }
