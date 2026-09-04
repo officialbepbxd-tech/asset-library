@@ -109,6 +109,7 @@
     margin-bottom:0;
   }
   .hero-nav .hn-left{position:relative;left:10px}  /* 좌측 그룹만 우측 10px */
+  .hero-nav .hn-right{position:relative;left:5px}  /* 우측 그룹만 우측 5px */
   .hn-left,.hn-right{display:flex;align-items:center;gap:28px}
   .hn-right{margin-right:26px}
   .hn-brand{color:var(--fg);font-weight:700;font-size:15px;letter-spacing:-.01em;cursor:pointer}
@@ -680,6 +681,7 @@
         인사이트 보기
       </button>
       <button class="btn" onclick="setAiKey()">AI 키 설정</button>
+      <button class="btn" onclick="regenThumbnails()">썸네일 배경 회색 통일</button>
       <button class="btn" onclick="logoutAdmin()">로그아웃</button>
     </div>
 
@@ -1071,12 +1073,51 @@ function makeThumb(dataUrl,maxW){
       const w=Math.max(1,Math.round((img.naturalWidth||maxW)*scale));
       const hh=Math.max(1,Math.round((img.naturalHeight||maxW)*scale));
       const c=document.createElement('canvas');c.width=w;c.height=hh;
-      try{ c.getContext('2d').drawImage(img,0,0,w,hh); c.toBlob(b=>res(b||dataUrlToBlob(dataUrl)),'image/jpeg',0.85); }
+      try{ const ctx=c.getContext('2d'); ctx.fillStyle='#f4f4f6'; ctx.fillRect(0,0,w,hh); ctx.drawImage(img,0,0,w,hh); c.toBlob(b=>res(b||dataUrlToBlob(dataUrl)),'image/jpeg',0.9); }
       catch(e){ res(dataUrlToBlob(dataUrl)); }
     };
     img.onerror=()=>res(dataUrlToBlob(dataUrl));
     img.src=dataUrl;
   });
+}
+// URL 이미지를 회색 배경 JPEG 썸네일로 (기존 검정 배경 썸네일 재생성용)
+function thumbFromUrl(url, maxW){
+  return new Promise(res=>{
+    const img=new Image(); img.crossOrigin='anonymous';
+    img.onload=()=>{
+      const scale=Math.min(1,maxW/(img.naturalWidth||maxW));
+      const w=Math.max(1,Math.round((img.naturalWidth||maxW)*scale));
+      const h=Math.max(1,Math.round((img.naturalHeight||maxW)*scale));
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      try{ const ctx=c.getContext('2d'); ctx.fillStyle='#f4f4f6'; ctx.fillRect(0,0,w,h); ctx.drawImage(img,0,0,w,h); c.toBlob(b=>res(b),'image/jpeg',0.9); }
+      catch(e){ res(null); }  // CORS 오염 등
+    };
+    img.onerror=()=>res(null);
+    img.src=url;
+  });
+}
+// 관리자: 모든 에셋 썸네일을 회색 배경으로 일괄 재생성
+async function regenThumbnails(){
+  if(!adminAuthed){ toast('관리자 전용이에요'); return; }
+  if(!confirm('모든 에셋 썸네일을 회색 배경으로 다시 생성할까요?\n에셋 수가 많으면 몇 분 걸릴 수 있어요.')) return;
+  const st=document.getElementById('aiTagStatus');
+  const list=[...REMOTE]; let ok=0, fail=0;
+  for(let i=0;i<list.length;i++){
+    const a=list[i];
+    if(st) st.textContent=`썸네일 재생성… (${i+1}/${list.length}) 성공 ${ok} 실패 ${fail}`;
+    try{
+      const blob=await thumbFromUrl(a.fullUrl||a.src, 640);
+      if(!blob){ fail++; continue; }
+      const rel=(a.fullUrl||'').split('/asset-files/')[1]||'';
+      const folder=rel?rel.split('/')[0]:'etc';
+      const url=await supaUpload('asset-thumbnails',`${folder}/${a.id}_t${Date.now()}.jpg`,blob,'image/jpeg');
+      const r=await fetch(`${SUPA_URL}/rest/v1/assets?id=eq.${a.id}`,{method:'PATCH',headers:{...SUPA_H,'content-type':'application/json'},body:JSON.stringify({thumbnail_url:url})});
+      if(r.ok) ok++; else fail++;
+    }catch(e){ fail++; }
+  }
+  if(st) st.textContent='';
+  try{ REMOTE=await loadSupabase(); await rebuild(); render(); buildMarquee(); renderAdminList(); }catch(e){}
+  toast(`썸네일 재생성 완료 — 성공 ${ok} / 실패 ${fail}`);
 }
 // 원본이 너무 크면 업로드 전에 축소 (413 방지). svg/gif는 그대로.
 function shrinkOriginal(dataUrl, ext){
