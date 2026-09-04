@@ -1421,10 +1421,11 @@ async function init(){
   heroEl.addEventListener('focus',renderHeroPanel);
   heroEl.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.isComposing){e.preventDefault();applySearch(heroEl.value);} });
 
-  // 1) 로컬 먼저 표시 (즉시)
+  // 1) 로컬 먼저 표시 (즉시) — 단, 샘플(더미) 에셋은 로딩 중 화면에 표시하지 않음(빈 화면 유지)
   const local=await dbAll();
-  ASSETS=[...local];
-  buildCats(); buildTagRow(); render(); refreshBell();
+  ASSETS=local.filter(a=>!a.sample);
+  buildCats(); buildTagRow(); refreshBell();
+  if(ASSETS.length) render();   // 실제 로컬 에셋이 있을 때만 그림 (없으면 빈 화면 → Supabase 로드 후 채움)
 
   // 2) Supabase 불러오기
   try{
