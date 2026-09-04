@@ -1470,8 +1470,8 @@ function tagChipMatch(a, tag){
   if(tl==='목업'){
     if(a.category==='ilo') return false;             // 순수 이모지/로고 제외
     const isIlo=hitAny(['일로','ilo']);              // '워터 마스코트(일로)'도 한글 부분일치로 잡힘
-    const isApp=hitAny(['핸드폰','스마트폰','휴대폰','앱화면','앱스크린','mobile','uiux','ui ux']); // 실제 앱/폰 목업 신호
-    return isIlo && isApp;
+    const isMockup=hitAny(['목업','mockup','핸드폰','스마트폰','휴대폰','앱화면','앱스크린','mobile','uiux','ui ux']); // 목업 태그 또는 앱/폰 신호
+    return isIlo && isMockup;
   }
   // 일로 색상 분리: 모노(흰색/흑백) 판별 우선 → 로고형, 그 외(컬러) → 이모지형
   if(tl==='이모지형'||tl==='로고형'){
